@@ -1,0 +1,24 @@
+# CONFIGURATION
+
+import os
+
+# Get the parent folder's docs directory
+DOCS_FOLDER = "docs" #os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "docs"))
+
+VECTOR_DB_FILE = "vector.db"
+EMBEDDINGS_CACHE = "embeddings_cache.pkl"
+DOCS_CACHE = "docs_cache.pkl"
+CONFIG_FILE = "rag_config.json"
+
+CHUNK_SIZE = 500  # Words per chunk
+TOP_K_RETRIEVAL = 5  # Number of chunks to retrieve
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+DEVICE = "cuda" if os.environ.get("CUDA_VISIBLE_DEVICES") else "cpu"
+
+# GEMMA CONFIGURATION
+# GEMMA_MODEL = "gemini-2.5-flash"
+# GEMMA_MODEL = "gemini-flash-lite-latest"
+GEMMA_MODEL = "gemma-3-27b-it"
+API_KEY = "AIzaSyCgjwrlnSzc0SjS9JYE6RCvC8ikUrPLJ6o"
+
+VERIFY_SSL = False
