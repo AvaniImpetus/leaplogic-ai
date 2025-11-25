@@ -40,17 +40,19 @@ class GemmaAnswerGenerator:
         self.model = genai.GenerativeModel(config.GEMMA_MODEL)
         print(f"✓ Gemma model configured: {config.GEMMA_MODEL}\n")
 
-    def generate_answer(self, question: str, context: str) -> str:
+    def generate_answer(self, question: str, context: str, conversation_context: str = "") -> str:
         """Generate answer using Gemma model with context"""
-        if context.strip():
+        # Include conversation context if available
+        context_with_history = context
+        if conversation_context:
+            context_with_history = f"{conversation_context}\n\n{context}" if context else conversation_context
+
+        if context_with_history.strip():
             prompt = f"""You are a helpful assistant with access to a knowledge base.
 Based on the following knowledge base content, provide a clear and accurate answer to the question.
 If the context doesn't contain relevant information, say so honestly.
 
-KNOWLEDGE BASE CONTENT:
-{context}
-
-QUESTION: {question}
+{context_with_history}
 
 ANSWER:"""
         else:
@@ -102,19 +104,36 @@ class GemmaRAGSystem:
         """Reload knowledge base without overwriting existing entries"""
         self.load_knowledge_base(overwrite_existing=False)
 
-    def answer_question(self, question: str, file_filter: str = None) -> dict:
+    def answer_question(self, question: str, file_filter: str = None, conversation_history: list = None) -> dict:
         """
         Answer a user question using the RAG pipeline
         Returns dict with answer, sources, and metadata
+
+        Args:
+            question: The user's question
+            file_filter: Optional file filter for search
+            conversation_history: List of previous Q&A pairs as dicts with 'question' and 'answer' keys
         """
         print(f"\n🔍 Processing: {question}")
         print("-" * 60)
+
+        # Prepare conversation context
+        conversation_context = ""
+        if conversation_history and len(conversation_history) > 0:
+            conversation_context = "\n\nCONVERSATION HISTORY:\n"
+            for i, qa in enumerate(conversation_history[-3:], 1):  # Last 3 exchanges for context
+                conversation_context += f"Q{i}: {qa['question']}\nA{i}: {qa['answer']}\n\n"
+            conversation_context += "CURRENT QUESTION: " + question
+            print(f"📝 Using conversation context from {len(conversation_history)} previous exchanges")
 
         try:
             # Retrieve relevant context
             search_results = self.searcher.search(
                 question, top_k=config.TOP_K_RETRIEVAL, file_filter=file_filter)
             search_results = set(search_results)
+            if search_results and len(search_results) > 0:
+                # Build context from search results
+                context_parts = []
             if search_results and len(search_results) > 0:
                 # Build context from search results
                 context_parts = []
@@ -139,7 +158,7 @@ class GemmaRAGSystem:
 
             # Generate answer
             print("💭 Generating answer with Gemma...")
-            answer = self.answer_generator.generate_answer(question, context)
+            answer = self.answer_generator.generate_answer(question, context, conversation_context)
 
             # Return result
             result = {

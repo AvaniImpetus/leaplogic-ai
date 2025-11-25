@@ -354,8 +354,28 @@ def process_user_question(question: str):
         with st.spinner("🤔 Thinking..."):
             try:
                 system = st.session_state.system
+
+                # Extract conversation history (previous Q&A pairs)
+                conversation_history = []
+                for msg in st.session_state.messages:
+                    if msg["role"] == "user":
+                        # Find the corresponding assistant response
+                        continue
+                    elif msg["role"] == "assistant":
+                        # Pair with the previous user message
+                        user_msgs = [m for m in st.session_state.messages if m["role"] == "user"]
+                        if user_msgs and len(user_msgs) > len(conversation_history):
+                            prev_user_msg = user_msgs[len(conversation_history)]
+                            conversation_history.append({
+                                "question": prev_user_msg["content"],
+                                "answer": msg["content"]
+                            })
+
                 result = system.answer_question(
-                    question, file_filter=st.session_state.get("file_filter"))
+                    question,
+                    file_filter=st.session_state.get("file_filter"),
+                    conversation_history=conversation_history
+                )
                 answer = result.get("answer", "")
                 search_results = result.get("search_results", [])
                 sources_md = format_sources(search_results)
