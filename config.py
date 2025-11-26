@@ -1,6 +1,7 @@
 # CONFIGURATION
 
 import os
+import streamlit as st
 
 # Get the parent folder's docs directory
 DOCS_FOLDER = "docs" #os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "docs"))
@@ -19,6 +20,5 @@ DEVICE = "cuda" if os.environ.get("CUDA_VISIBLE_DEVICES") else "cpu"
 # GEMMA_MODEL = "gemini-2.5-flash"
 # GEMMA_MODEL = "gemini-flash-lite-latest"
 GEMMA_MODEL = "gemma-3-27b-it"
-API_KEY = "AIzaSyCgjwrlnSzc0SjS9JYE6RCvC8ikUrPLJ6o"
-
+API_KEY = st.secrets.get("API_KEY", "")
 VERIFY_SSL = False

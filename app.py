@@ -581,7 +581,7 @@ def render_review_dashboard():
     with col1:
         feedback_filter = st.selectbox("Filter by Feedback", ["All", "Helpful", "Not Helpful", "Not Marked"])
     with col2:
-        framework_filter = st.selectbox("Filter by Knowledge Base", ["All", "Leaplogic", "wm-python framework"])
+        framework_filter = st.selectbox("Filter by Knowledge Base", ["All", "Leaplogic", "wm-python Framework"])
     
     
     # CSV Download button
@@ -607,9 +607,9 @@ def render_review_dashboard():
     
     # Apply framework filter
     if framework_filter == "Leaplogic":
-        filtered_logs = [log for log in filtered_logs if log.get("Framework", "") == "Leaplogic"]
-    elif framework_filter == "Common Framework":
-        filtered_logs = [log for log in filtered_logs if log.get("Framework", "") == "Common Framework"]
+        filtered_logs = [log for log in filtered_logs if log.get("Framework", "").strip() == "Leaplogic"]
+    elif framework_filter == "wm-python Framework":
+        filtered_logs = [log for log in filtered_logs if log.get("Framework", "").strip() == "wm-python Framework"]
 
     st.divider()
     
