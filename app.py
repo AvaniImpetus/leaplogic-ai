@@ -13,8 +13,68 @@ import streamlit.components.v1 as components
 import config
 from gemma_rag_system import GemmaRAGSystem
 
+import csv
+import os
+from datetime import datetime
+
+import streamlit as st
+import streamlit.components.v1 as components
+
+import config
+from gemma_rag_system import GemmaRAGSystem
+
 CSV_LOG_DIR = "logged_questions"
 CSV_LOG_FILE = os.path.join(CSV_LOG_DIR, "feedback_log.csv")
+
+
+def load_credentials():
+    """Load authentication credentials from Streamlit secrets"""
+    try:
+        return {
+            "username": st.secrets["auth"]["username"],
+            "password": st.secrets["auth"]["password"]
+        }
+    except (KeyError, FileNotFoundError):
+        st.error("Authentication configuration not found. Please check .streamlit/secrets.toml")
+        return {"username": "", "password": ""}
+
+
+def login_page():
+    """Display login page"""
+    # Apply the same styling as the main app
+    apply_custom_css()
+
+    st.markdown(
+        """
+        <div class="header-container">
+            <div class="header-title">🔐 LeapLogic AI Assistant</div>
+            <p class="header-subtitle">Secure Access Portal</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+
+    with col2:
+        st.markdown("### Please Login")
+
+        with st.form("login_form"):
+            username = st.text_input("Username", placeholder="Enter your username")
+            password = st.text_input("Password", type="password", placeholder="Enter your password")
+
+            submitted = st.form_submit_button("Login", use_container_width=True)
+
+            if submitted:
+                credentials = load_credentials()
+
+                if username == credentials["username"] and password == credentials["password"]:
+                    st.session_state.logged_in = True
+                    st.session_state.username = username
+                    st.success("Login successful! Redirecting...")
+                    st.rerun()
+                else:
+                    st.error("Invalid username or password. Please try again.")
 
 
 def apply_custom_css():
@@ -659,8 +719,17 @@ def render_review_dashboard():
 
 
 def main():
+    # Check authentication first
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+
+    if not st.session_state.logged_in:
+        login_page()
+        return
+
     st.set_page_config(page_title="Leaplogic AI Assistant", page_icon="🤖",
                        layout="wide", initial_sidebar_state="expanded")
+
     apply_custom_css()
     st.logo(
         image="https://www.leaplogic.io/wp-content/themes/leaplogic/assets/images/logo-leaplogic-impetus.svg",
@@ -693,6 +762,14 @@ def main():
 
     # Knowledge base selector in sidebar - only show when not in dashboard
     with st.sidebar:
+        # Add logout button at the top of sidebar
+        if st.button("🔓 Logout", key="sidebar_logout", help="Logout from the system", use_container_width=True):
+            st.session_state.logged_in = False
+            st.session_state.username = None
+            st.rerun()
+        
+        st.divider()  # Add a divider after logout button
+        
         kb_choice = st.selectbox(
             "Select Knowledge Base",
             ["Leaplogic", "wm-python Framework"],
