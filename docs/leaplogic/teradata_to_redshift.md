@@ -1,16 +1,29 @@
 # Teradata to Amazon Redshift Conversion Guide - LeapLogic
 
-## Overview
+## Overview: What is LeapLogic and How Does It Convert Teradata to Redshift?
 
-This document details how **LeapLogic** converts Teradata database objects to **Amazon Redshift**. LeapLogic's automated migration engine analyzes Teradata schemas, queries, and logic, then generates equivalent Redshift SQL code following AWS best practices and optimized for Redshift's columnar storage architecture.
+**Question:** What is LeapLogic? How does LeapLogic convert Teradata to Amazon Redshift?
+
+**Answer:** LeapLogic is an automated database migration platform that converts Teradata database objects to Amazon Redshift. LeapLogic's automated migration engine analyzes Teradata schemas, queries, stored procedures, views, and logic, then generates equivalent Redshift SQL code following AWS best practices and optimized for Redshift's columnar storage architecture.
+
+LeapLogic handles:
+- Data type conversions (BYTEINT, VARCHAR, CLOB, BLOB, TIMESTAMP, etc.)
+- Query transformations (UPDATE, DELETE, INSERT, TRUNCATE)
+- Function translations (NULLIFZERO, ZEROIFNULL, TO_DATE, etc.)
+- Index and constraint conversions
+- Stored procedure migrations
 
 ---
 
-## 1. Data Type Conversion
+## 1. Data Type Conversions: How Does LeapLogic Convert Teradata Data Types to Redshift?
 
-LeapLogic automatically converts Teradata data types to their Redshift equivalents during migration. Below are the detailed conversions performed by LeapLogic.
+**Question:** How does LeapLogic convert Teradata data types to Redshift? What are the data type mappings?
 
-### Integer Type Conversions
+**Answer:** LeapLogic automatically converts Teradata data types to their Redshift equivalents during migration. Below are the detailed conversions performed by LeapLogic.
+
+### How Does LeapLogic Convert Teradata Integer Types (BYTEINT, SMALLINT, INTEGER, BIGINT) to Redshift?
+
+**Question:** How is BYTEINT converted in Redshift? What does LeapLogic convert BYTEINT to?
 
 **BYTEINT → SMALLINT**  
 LeapLogic converts Teradata's BYTEINT type (storing values from -128 to 127) to Redshift's SMALLINT, since Redshift doesn't have an exact one-byte integer equivalent. While this uses slightly more storage (2 bytes instead of 1), LeapLogic ensures all original values are maintained without data loss. When LeapLogic encounters `status BYTEINT`, it generates `status SMALLINT`, preserving values like 1 (active), 0 (inactive), or -1 (error).
@@ -24,7 +37,9 @@ LeapLogic converts Teradata's INTEGER type to Redshift's INTEGER with perfect on
 **BIGINT → BIGINT**  
 LeapLogic converts Teradata's BIGINT directly to Redshift's BIGINT with no changes, supporting the massive range needed for very large transaction IDs, microsecond timestamps, or large aggregations. LeapLogic transforms `transaction_id BIGINT` to `transaction_id BIGINT`, preserving values like 9876543210.
 
-### Decimal and Floating-Point Type Conversions
+### How Does LeapLogic Convert Teradata Decimal, Numeric, Float, and Double Precision Types to Redshift?
+
+**Question:** How is FLOAT converted in Redshift? What does LeapLogic convert DECIMAL, NUMERIC, FLOAT, REAL, DOUBLE PRECISION to?
 
 **DECIMAL(18,2) → DECIMAL(18,2)**  
 LeapLogic preserves the exact numeric precision of Teradata's DECIMAL type when converting to Redshift. For financial data where rounding errors are unacceptable, LeapLogic maintains both precision (18) and scale (2) exactly. When LeapLogic converts `price DECIMAL(18,2)`, it generates `price DECIMAL(18,2)`, ensuring values like 1234.56 remain perfectly accurate for currency calculations.
@@ -41,7 +56,9 @@ LeapLogic performs a direct conversion of Teradata's REAL type to Redshift's REA
 **DOUBLE PRECISION → String**  
 In specific cases, LeapLogic converts Teradata's DOUBLE PRECISION to Redshift's String (VARCHAR) type rather than to DOUBLE PRECISION. This strategic conversion avoids potential precision loss from floating-point representation issues. By storing the value as text, LeapLogic maintains the exact string representation. LeapLogic transforms `precise_value DOUBLE PRECISION` to `precise_value String`, storing "3.141592653589793" as text.
 
-### Character and String Type Conversions
+### How Does LeapLogic Convert Teradata Character and String Types (CHAR, VARCHAR, CLOB, BLOB) to Redshift?
+
+**Question:** How is CHAR converted in Redshift? How is CLOB converted? How is BLOB converted? What does LeapLogic convert VARCHAR, CHAR, CLOB, BLOB to?
 
 **CHAR(10) → VARCHAR(10)**  
 LeapLogic converts Teradata's fixed-length CHAR type to Redshift's VARCHAR with the same length constraint. While CHAR always uses fixed storage (padding with spaces), LeapLogic generates more storage-efficient VARCHAR code in Redshift. The maximum length constraint is preserved to maintain data integrity. LeapLogic transforms `country_code CHAR(10)` to `country_code VARCHAR(10)`, storing "USA" without the space padding that Teradata would add.
@@ -55,7 +72,9 @@ LeapLogic converts Teradata's CLOB type (which can store massive text objects) t
 **BLOB → VARCHAR**  
 LeapLogic converts Teradata's Binary Large Objects (BLOB) to Redshift's VARCHAR. Since BLOBs store binary data and VARCHAR stores text, LeapLogic's conversion strategy assumes binary data will be encoded as text (such as base64 encoding) in Redshift. LeapLogic transforms `data BLOB` to `data VARCHAR`, where binary image data can be stored as a base64-encoded string.
 
-### Date and Time Type Conversions
+### How Does LeapLogic Convert Teradata Date and Time Types (DATE, TIME, TIMESTAMP) to Redshift?
+
+**Question:** How is DATE converted in Redshift? How is TIMESTAMP converted? What does LeapLogic convert DATE, TIME, TIMESTAMP to?
 
 **DATE → DATE**  
 LeapLogic performs a direct, perfect conversion of Teradata's DATE type to Redshift's DATE, storing calendar dates (year, month, day) identically in both systems. No conversion logic is needed. LeapLogic maintains `order_date DATE` as `order_date DATE`, preserving values like 2025-11-18.
@@ -66,7 +85,9 @@ LeapLogic converts Teradata's TIME type directly to Redshift's TIME type, both s
 **TIMESTAMP → TIMESTAMP**  
 LeapLogic performs a perfect one-to-one conversion of Teradata's TIMESTAMP to Redshift's TIMESTAMP, storing both date and time together with high precision. This is essential for audit trails, transaction logs, and event tracking. LeapLogic maintains `created_at TIMESTAMP` as `created_at TIMESTAMP`, preserving precise moments like 2025-11-18 14:30:00.123456.
 
-### Interval Type Conversions
+### How Does LeapLogic Convert Teradata INTERVAL Types (INTERVAL YEAR, INTERVAL MONTH) to Redshift?
+
+**Question:** How is INTERVAL YEAR converted in Redshift? How is INTERVAL MONTH converted? What does LeapLogic convert INTERVAL types to?
 
 **INTERVAL YEAR(2) → <<INTERVAL_CONSTANT>> SECOND_STRING INTERVAL year**  
 LeapLogic converts Teradata's INTERVAL YEAR type to Redshift's interval format, which handles intervals differently. LeapLogic generates conversion code using placeholder constants and special interval syntax. The notation `<<INTERVAL_CONSTANT>>` indicates that LeapLogic transforms the actual interval value to Redshift's interval format. For `age INTERVAL YEAR(2)` representing 25 years, LeapLogic generates appropriate Redshift interval representation.
@@ -76,11 +97,15 @@ LeapLogic converts Teradata's INTERVAL MONTH to Redshift's interval syntax with 
 
 ---
 
-## 2. Query Type Conversion
+## 2. Query Type Conversions: How Does LeapLogic Convert Teradata SQL Queries to Redshift?
 
-LeapLogic automatically analyzes and converts different SQL query types from Teradata to Redshift-optimized syntax.
+**Question:** How does LeapLogic convert Teradata queries to Redshift? How are UPDATE, DELETE, INSERT, TRUNCATE queries converted?
 
-### UPDATE Queries → MERGE INTO
+**Answer:** LeapLogic automatically analyzes and converts different SQL query types from Teradata to Redshift-optimized syntax.
+
+### How Does LeapLogic Convert Teradata UPDATE Queries to Redshift MERGE INTO?
+
+**Question:** How is UPDATE converted in Redshift? Does LeapLogic convert UPDATE to MERGE INTO?
 
 LeapLogic converts Teradata UPDATE statements to MERGE INTO statements in Redshift for better performance in data warehouse environments. When LeapLogic encounters UPDATE operations, it transforms them into upsert patterns (update if exists, insert if not) that are more efficient in Redshift's columnar storage.
 
@@ -113,7 +138,9 @@ WHEN MATCHED THEN
 
 LeapLogic's conversion ensures atomic operations and optimal performance in Redshift's architecture.
 
-### DELETE Queries → MERGE INTO or DELETE
+### How Does LeapLogic Convert Teradata DELETE Queries to Redshift?
+
+**Question:** How is DELETE converted in Redshift? Does LeapLogic convert DELETE to MERGE INTO? When does LeapLogic keep DELETE as DELETE?
 
 LeapLogic intelligently determines the best conversion strategy for DELETE statements based on query complexity. For simple DELETE operations, LeapLogic maintains the DELETE syntax. For complex scenarios involving joins or subqueries, LeapLogic converts to MERGE INTO patterns for better Redshift performance.
 
@@ -164,7 +191,9 @@ WHEN MATCHED THEN DELETE;
 
 LeapLogic's intelligent conversion provides better performance for complex delete operations in Redshift.
 
-### INSERT Queries → INSERT
+### How Does LeapLogic Convert Teradata INSERT Queries to Redshift?
+
+**Question:** How is INSERT converted in Redshift? Does LeapLogic add CAST or COALESCE to INSERT statements?
 
 LeapLogic converts Teradata INSERT statements to Redshift with appropriate data type casting and NULL handling. While basic INSERT syntax remains similar, LeapLogic adds necessary transformations for data type compatibility and constraint handling.
 
@@ -212,7 +241,9 @@ GROUP BY region_id, product_id;
 
 LeapLogic ensures proper data type compatibility and handles NULL values according to target table constraints.
 
-### TRUNCATE Queries → TRUNCATE
+### How Does LeapLogic Convert Teradata TRUNCATE Queries to Redshift?
+
+**Question:** How is TRUNCATE converted in Redshift? Does LeapLogic change TRUNCATE syntax?
 
 LeapLogic converts Teradata TRUNCATE statements directly to Redshift with minimal changes. This operation efficiently removes all rows from a table without logging individual row deletions.
 
@@ -232,33 +263,45 @@ LeapLogic preserves the TRUNCATE behavior: fast data removal, identity column re
 
 ---
 
-## 3. Logical Transformations and Conversion Rules
+## 3. Logical Transformations and Conversion Rules: How Does LeapLogic Handle Special SQL Constructs?
 
-LeapLogic applies intelligent transformation rules to ensure migrated code maintains functional equivalence while optimizing for Redshift's columnar storage architecture.
+**Question:** What transformation rules does LeapLogic apply? How does LeapLogic handle QUALIFY, COALESCE, casting, indexes, identity columns?
 
-### QUALIFY Clause Conversion
+**Answer:** LeapLogic applies intelligent transformation rules to ensure migrated code maintains functional equivalence while optimizing for Redshift's columnar storage architecture.
+
+### How Does LeapLogic Handle QUALIFY Clause in Redshift Conversion?
+
+**Question:** How is QUALIFY clause converted in Redshift? Does LeapLogic change QUALIFY?
 
 **How LeapLogic Handles It:** Redshift supports the QUALIFY clause, hence no conversion is required for qualify clause.
 
-### Casting Application
+### How Does LeapLogic Apply CAST Functions in Redshift Conversion?
+
+**Question:** When does LeapLogic apply CAST? How does LeapLogic handle data type mismatches? How is casting applied?
 
 **How LeapLogic Handles It:** When LeapLogic detects data type mismatches between source and target columns during INSERT operations, it automatically applies CAST functions to ensure type compatibility.
 
 **Example:** LeapLogic generates `CAST(col as int)` when inserting into integer columns from string sources.
 
-### COALESCE Application
+### How Does LeapLogic Apply COALESCE for NULL Handling in Redshift?
+
+**Question:** When does LeapLogic apply COALESCE? How does LeapLogic handle NOT NULL constraints? How is COALESCE used?
 
 **How LeapLogic Handles It:** For tables with NOT NULL constraints, LeapLogic automatically wraps columns with COALESCE functions to handle null entries appropriately.
 
 **Example:** LeapLogic generates `COALESCE(col, 'Default Value')` or `COALESCE(col, 0)` based on data type.
 
-### Collation Handling (Redshift-Specific)
+### How Does LeapLogic Handle Collation and Case Sensitivity in Redshift?
+
+**Question:** How does LeapLogic handle collation? How is case sensitivity handled in Redshift conversion?
 
 **How LeapLogic Handles It:** Teradata handles case sensitivity automatically, but Redshift requires explicit collation functions. LeapLogic applies `collate(column, 'case_sensitive')` or `collate(column, 'case_insensitive')` as needed.
 
 **Conversion Pattern:** LeapLogic wraps string comparisons with appropriate collation functions based on the original Teradata query intent.
 
-### Default Value / Identity Column Conversion
+### How Does LeapLogic Convert Teradata IDENTITY Columns and Default Values to Redshift?
+
+**Question:** How is IDENTITY column converted in Redshift? How does LeapLogic handle default values? How is GENERATED ALWAYS AS IDENTITY converted?
 
 **How LeapLogic Handles It:** Teradata's default values and identity columns work differently than Redshift's. LeapLogic performs specific conversions:
 
@@ -268,19 +311,27 @@ LeapLogic applies intelligent transformation rules to ensure migrated code maint
 - **Teradata Unicode:** `U&'\0000\0000' UESCAPE '\'`
 - **LeapLogic Converts to Redshift:** `chr(0)`
 
-### Asterisk (\*) Replacement
+### How Does LeapLogic Replace SELECT * (Asterisk) with Explicit Column Names?
+
+**Question:** Does LeapLogic replace SELECT *? How does LeapLogic handle asterisk in views? Does LeapLogic expand SELECT * to column names?
 
 **How LeapLogic Handles It:** For view conversions, LeapLogic replaces `SELECT *` with explicit column names for performance enhancement. This is not applied to procedure conversions.
 
-### Naming Conventions
+### What Naming Conventions Does LeapLogic Apply During Redshift Conversion?
+
+**Question:** Does LeapLogic change column names? Does LeapLogic convert names to lowercase? What naming conventions does LeapLogic use?
 
 **How LeapLogic Handles It:** LeapLogic standardizes naming conventions by converting all columns and tables to lowercase, following best practices. File names (object names without schema) are converted to lowercase, while class names are converted to uppercase.
 
-### Casting & Coalesce in Nested Queries
+### How Does LeapLogic Handle CAST and COALESCE in Nested Queries and Subqueries?
+
+**Question:** Does LeapLogic apply CAST in subqueries? Does LeapLogic apply COALESCE in inner queries? How are nested queries handled?
 
 **How LeapLogic Handles It:** LeapLogic optimizes by applying casting and COALESCE only in the outermost query, not in inner subqueries, improving Redshift query performance.
 
-### Glass View Definition
+### What is a Glass View and How Does LeapLogic Identify Glass View Definitions?
+
+**Question:** What is a glass view? How does LeapLogic identify simple views? What are glass view definitions?
 
 **How LeapLogic Handles It:** LeapLogic identifies views that don't contain any joins or transformations (known as Glass view definitions) and generates reports for all such views.
 
@@ -288,7 +339,9 @@ LeapLogic applies intelligent transformation rules to ensure migrated code maint
 
 LeapLogic documents these simple views for review and potential optimization.
 
-### Index Conversion
+### How Does LeapLogic Convert Teradata Indexes (Primary Index, Unique Primary Index) to Redshift?
+
+**Question:** How is Primary Index converted in Redshift? How is Unique Primary Index converted? Does LeapLogic convert indexes to Sort Keys? How are indexes handled?
 
 **How LeapLogic Handles It:** LeapLogic converts Teradata indexes to appropriate Redshift equivalents based on their type and usage.
 
@@ -369,19 +422,25 @@ SORTKEY (sale_id);
 -- Primary Index converted to Sort Key due to partition clause
 ```
 
-### Logging in Stored Procedures
+### How Does LeapLogic Add Logging to Converted Redshift Stored Procedures?
+
+**Question:** Does LeapLogic add logging to stored procedures? How does LeapLogic implement logging in Redshift procedures? Does LeapLogic use RAISE for logging?
 
 **How LeapLogic Handles It:** LeapLogic implements comprehensive logging in converted Redshift stored procedures using the RAISE statement. These logs provide critical information about procedure execution, including the procedure name, affected table name, type of query, and status. This ensures proper audit trails and debugging capabilities in the migrated code.
 
 ---
 
-## 4. Function Conversion
+## 4. Function Conversions: How Does LeapLogic Convert Teradata Functions to Redshift?
 
-LeapLogic's function conversion engine automatically translates Teradata SQL functions to their Redshift equivalents. Below are detailed examples of how LeapLogic performs these conversions.
+**Question:** How does LeapLogic convert Teradata functions to Redshift? What function mappings does LeapLogic perform?
 
-### String and Text Manipulation Functions
+**Answer:** LeapLogic's function conversion engine automatically translates Teradata SQL functions to their Redshift equivalents. Below are detailed examples of how LeapLogic performs these conversions.
 
-#### replacestr/reg_replace → regexp_replace
+### String and Text Manipulation Function Conversions
+
+#### How Does LeapLogic Convert replacestr and reg_replace to Redshift regexp_replace?
+
+**Question:** How is replacestr converted in Redshift? How is reg_replace converted? What does LeapLogic convert replacestr to?
 
 **What the function does:** Searches for patterns in text strings and replaces them with new values.
 
@@ -407,7 +466,9 @@ SELECT regexp_replace(email, '@.*$', '@company.com') AS normalized_email
 FROM employees;
 ```
 
-#### CHAR/CHARACTER/CHARS → LENGTH
+#### How Does LeapLogic Convert Teradata CHAR Function (Character Length) to Redshift LENGTH?
+
+**Question:** How is CHAR function converted in Redshift? How is character length calculated? What does LeapLogic convert CHAR/CHARACTER/CHARS to?
 
 **What the function does:** Returns the length of a string (number of characters).
 
@@ -429,7 +490,9 @@ FROM customers
 WHERE LENGTH(customer_name) > 50;
 ```
 
-#### instr → STRPOS
+#### How Does LeapLogic Convert Teradata instr Function to Redshift STRPOS?
+
+**Question:** How is instr converted in Redshift? How do you find substring position? What does LeapLogic convert instr to?
 
 **What the function does:** Finds the position of a substring within a string.
 
@@ -451,7 +514,9 @@ FROM users
 WHERE STRPOS(email, '@') > 0;
 ```
 
-#### numsonly → REGEXP_REPLACE
+#### How Does LeapLogic Convert Teradata numsonly Function to Redshift REGEXP_REPLACE?
+
+**Question:** How is numsonly converted in Redshift? How do you extract only numbers from a string? What does LeapLogic convert numsonly to?
 
 **What the function does:** Extracts only numeric characters from a string.
 
@@ -471,9 +536,11 @@ SELECT phone, REGEXP_REPLACE(phone, '[^0-9]', '') AS digits_only
 FROM contacts;
 ```
 
-### Hashing and Encryption Functions
+### Hashing and Encryption Function Conversions
 
-#### hash_md5 → md5
+#### How Does LeapLogic Convert Teradata hash_md5 Function to Redshift md5?
+
+**Question:** How is hash_md5 converted in Redshift? How do you generate MD5 hash? What does LeapLogic convert hash_md5 to?
 
 **What the function does:** Generates an MD5 hash of the input value.
 
@@ -493,7 +560,9 @@ SELECT customer_id, md5(email) AS hashed_email
 FROM customers;
 ```
 
-#### hash8 → hash8expression
+#### How Does LeapLogic Convert Teradata hash8 Function to Redshift?
+
+**Question:** How is hash8 converted in Redshift? What does LeapLogic convert hash8 to?
 
 **What the function does:** Creates an 8-byte hash value from the input.
 
@@ -513,9 +582,11 @@ SELECT customer_id, hash8expression AS distribution_key
 FROM orders;
 ```
 
-### Type Conversion Functions
+### Type Conversion Function Conversions (TO_DATE, TO_CHAR, TO_INTEGER, TO_TIMESTAMP, TO_NUMBER)
 
-#### TO_DATE → CAST(col as date)
+#### How Does LeapLogic Convert Teradata TO_DATE Function to Redshift CAST?
+
+**Question:** How is TO_DATE converted in Redshift? How do you convert string to date? What does LeapLogic convert TO_DATE to?
 
 **What the function does:** Converts a string or other data type to a DATE type.
 
@@ -539,7 +610,9 @@ SELECT order_id, CAST(order_date_str AS date) AS order_date
 FROM staging_orders;
 ```
 
-#### TO_CHAR → CAST(col as String)
+#### How Does LeapLogic Convert Teradata TO_CHAR Function to Redshift CAST?
+
+**Question:** How is TO_CHAR converted in Redshift? How do you convert to string? What does LeapLogic convert TO_CHAR to?
 
 **What the function does:** Converts numbers, dates, or other data types to character strings.
 
@@ -561,7 +634,9 @@ SELECT customer_id, CAST(customer_id AS String) AS customer_id_str,
 FROM customers;
 ```
 
-#### TO_INTEGER → CAST(col as int)
+#### How Does LeapLogic Convert Teradata TO_INTEGER Function to Redshift CAST?
+
+**Question:** How is TO_INTEGER converted in Redshift? How do you convert to integer? What does LeapLogic convert TO_INTEGER to?
 
 **What the function does:** Converts string or numeric values to integer type.
 
@@ -581,7 +656,9 @@ SELECT product_id, CAST(price AS int) AS price_int
 FROM products;
 ```
 
-#### TO_TIMESTAMP → CAST(col as timestamp)
+#### How Does LeapLogic Convert Teradata TO_TIMESTAMP Function to Redshift CAST?
+
+**Question:** How is TO_TIMESTAMP converted in Redshift? How do you convert to timestamp? What does LeapLogic convert TO_TIMESTAMP to?
 
 **What the function does:** Converts strings or other types to timestamp data type.
 
@@ -601,7 +678,9 @@ SELECT event_id, CAST(event_time_str AS timestamp) AS event_timestamp
 FROM events;
 ```
 
-#### TO_NUMBER → CAST(col as decimal)
+#### How Does LeapLogic Convert Teradata TO_NUMBER Function to Redshift CAST?
+
+**Question:** How is TO_NUMBER converted in Redshift? How do you convert to decimal/numeric? What does LeapLogic convert TO_NUMBER to?
 
 **What the function does:** Converts strings or other types to numeric/decimal values.
 
@@ -621,9 +700,11 @@ SELECT order_id, CAST(amount_str AS decimal) AS amount
 FROM orders_staging;
 ```
 
-### Pattern Matching and Extraction Functions
+### Pattern Matching and Extraction Function Conversions (LIKE, ILIKE, REGEXP)
 
-#### REG_EXTRACT → REGEXP_EXTRACT
+#### How Does LeapLogic Convert Teradata REG_EXTRACT to Redshift REGEXP_EXTRACT?
+
+**Question:** How is REG_EXTRACT converted in Redshift? How do you extract text with regex? What does LeapLogic convert REG_EXTRACT to?
 
 **What the function does:** Uses regular expressions to extract specific portions of text matching a pattern.
 
@@ -645,7 +726,9 @@ SELECT log_entry,
 FROM system_logs;
 ```
 
-#### ~~* → ILIKE
+#### How Does LeapLogic Convert Teradata ~~* Operator to Redshift ILIKE (Case-Insensitive Pattern Matching)?
+
+**Question:** How is ~~* converted in Redshift? How do you do case-insensitive pattern matching? What does LeapLogic convert ~~* to?
 
 **What the operator does:** Performs case-insensitive pattern matching using wildcards.
 
@@ -667,7 +750,9 @@ FROM customers
 WHERE customer_name ILIKE 'john%';
 ```
 
-#### !~~ → NOT LIKE
+#### How Does LeapLogic Convert Teradata !~~ Operator to Redshift NOT LIKE?
+
+**Question:** How is !~~ converted in Redshift? How do you negate pattern matching? What does LeapLogic convert !~~ to?
 
 **What the operator does:** Performs case-sensitive pattern matching negation.
 
@@ -689,7 +774,9 @@ FROM products
 WHERE product_name NOT LIKE 'temp%';
 ```
 
-#### ~~ → LIKE
+#### How Does LeapLogic Convert Teradata ~~ Operator to Redshift LIKE?
+
+**Question:** How is ~~ converted in Redshift? How do you do pattern matching? What does LeapLogic convert ~~ to?
 
 **What the operator does:** Performs case-sensitive pattern matching using wildcards.
 
@@ -711,7 +798,9 @@ FROM users
 WHERE email LIKE '%@company.com';
 ```
 
-#### !~~* → NOT ILIKE
+#### How Does LeapLogic Convert Teradata !~~* Operator to Redshift NOT ILIKE?
+
+**Question:** How is !~~* converted in Redshift? How do you negate case-insensitive pattern matching? What does LeapLogic convert !~~* to?
 
 **What the operator does:** Performs case-insensitive pattern matching negation.
 
@@ -733,9 +822,11 @@ FROM employees
 WHERE department NOT ILIKE 'sales%';
 ```
 
-### Date and Time Functions
+### Date and Time Function Conversions (NOW, GETUTCDATE, FORMAT)
 
-#### GETUTCDATE → convert_timezone('UTC', getdate())
+#### How Does LeapLogic Convert Teradata GETUTCDATE to Redshift convert_timezone?
+
+**Question:** How is GETUTCDATE converted in Redshift? How do you get UTC date and time? What does LeapLogic convert GETUTCDATE to?
 
 **What the function does:** Returns the current date and time in UTC.
 
@@ -755,7 +846,9 @@ INSERT INTO audit_log (event_time, action)
 VALUES (convert_timezone('UTC', getdate()), 'User login');
 ```
 
-#### NOW → CURRENT_TIMESTAMP
+#### How Does LeapLogic Convert Teradata NOW Function to Redshift CURRENT_TIMESTAMP?
+
+**Question:** How is NOW converted in Redshift? How do you get current timestamp? What does LeapLogic convert NOW to?
 
 **What the function does:** Returns the current date and time when the query executes.
 
@@ -777,7 +870,9 @@ SET last_activity = CURRENT_TIMESTAMP
 WHERE session_id = 'abc123';
 ```
 
-#### FORMAT → TO_CHAR
+#### How Does LeapLogic Convert Teradata FORMAT Function to Redshift TO_CHAR?
+
+**Question:** How is FORMAT converted in Redshift? How do you format dates? What does LeapLogic convert FORMAT to?
 
 **What the function does:** Formats date, time, or numeric values into a specified string format.
 
@@ -797,9 +892,11 @@ SELECT TO_CHAR(order_date, 'dd/mm/yyyy') AS formatted_date
 FROM orders;
 ```
 
-### Random Number Functions
+### Random Number Function Conversions
 
-#### RANDOM → RAND()
+#### How Does LeapLogic Convert Teradata RANDOM Function to Redshift RAND?
+
+**Question:** How is RANDOM converted in Redshift? How do you generate random numbers? What does LeapLogic convert RANDOM to?
 
 **What the function does:** Generates a random number, typically between 0 and 1.
 
@@ -821,9 +918,11 @@ FROM customers
 WHERE RAND() < 0.1;
 ```
 
-### NULL Handling Functions
+### NULL Handling Function Conversions (NULLIFZERO, ZEROIFNULL)
 
-#### NULLIFZERO → NULLIF
+#### How Does LeapLogic Convert Teradata NULLIFZERO Function to Redshift NULLIF?
+
+**Question:** How is NULLIFZERO converted in Redshift? How do you convert zero to NULL? What does LeapLogic convert NULLIFZERO to? How to avoid division by zero?
 
 **What the function does:** Converts zero values to NULL.
 
@@ -845,7 +944,9 @@ SELECT product_id,
 FROM sales;
 ```
 
-#### ZEROIFNULL → COALESCE
+#### How Does LeapLogic Convert Teradata ZEROIFNULL Function to Redshift COALESCE?
+
+**Question:** How is ZEROIFNULL converted in Redshift? How do you convert NULL to zero? What does LeapLogic convert ZEROIFNULL to?
 
 **What the function does:** Converts NULL values to zero (0).
 
@@ -869,7 +970,11 @@ FROM customers;
 
 ---
 
-## Additional Resources
+## Additional Resources and References for Teradata to Redshift Migration
+
+**Question:** Where can I find more information about Teradata to Redshift migration? What are the official documentation links?
+
+**Answer:** Here are helpful resources for Teradata to Redshift migration:
 
 - [Amazon Redshift Documentation](https://docs.aws.amazon.com/redshift/)
 - [Redshift SQL Reference](https://docs.aws.amazon.com/redshift/latest/dg/c_SQL_commands.html)
