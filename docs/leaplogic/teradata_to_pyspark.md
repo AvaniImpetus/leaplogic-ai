@@ -1,29 +1,16 @@
 # Teradata to PySpark (AWS Glue) Conversion Guide - LeapLogic
 
-## Overview: What is LeapLogic and How Does It Convert Teradata to PySpark?
+## Overview
 
-**Question:** What is LeapLogic? How does LeapLogic convert Teradata to PySpark? How does LeapLogic convert Teradata to AWS Glue?
-
-**Answer:** LeapLogic is an automated database migration platform that converts Teradata database objects to PySpark for AWS Glue. LeapLogic's automated migration engine analyzes Teradata schemas, queries, stored procedures, views, and logic, then generates equivalent PySpark code following AWS best practices.
-
-LeapLogic handles:
-- Data type conversions (BYTEINT, VARCHAR, CLOB, BLOB, TIMESTAMP, etc.)
-- Query transformations (UPDATE, DELETE, INSERT, TRUNCATE)
-- Function translations (NULLIFZERO, ZEROIFNULL, TO_DATE, etc.)
-- QUALIFY clause conversion to derived tables
-- Cross-platform query conversion (Iceberg & Redshift)
+This document details how **LeapLogic** converts Teradata database objects to **PySpark** for AWS Glue. LeapLogic's automated migration engine analyzes Teradata schemas, queries, and logic, then generates equivalent PySpark code following AWS best practices.
 
 ---
 
-## 1. Data Type Conversions: How Does LeapLogic Convert Teradata Data Types to PySpark?
+## 1. Data Type Conversion
 
-**Question:** How does LeapLogic convert Teradata data types to PySpark? What are the data type mappings for AWS Glue?
+LeapLogic automatically converts Teradata data types to their PySpark equivalents during migration. Below are the detailed conversions performed by LeapLogic.
 
-**Answer:** LeapLogic automatically converts Teradata data types to their PySpark equivalents during migration. Below are the detailed conversions performed by LeapLogic.
-
-### How Does LeapLogic Convert Teradata Integer Types (BYTEINT, SMALLINT, INTEGER, BIGINT) to PySpark?
-
-**Question:** How is BYTEINT converted in PySpark? What does LeapLogic convert BYTEINT, SMALLINT, INTEGER, BIGINT to?
+### Integer Type Conversions
 
 **BYTEINT → int**  
 LeapLogic converts Teradata's BYTEINT data type (storing values from -128 to 127) to PySpark's standard `int` type. When LeapLogic encounters a column like `status BYTEINT`, it generates PySpark code with `status int`. This is commonly used for boolean-like flags, status codes, or small counters. For example, values like 1 (active), 0 (inactive), or -1 (error state) are preserved during conversion.
@@ -37,9 +24,7 @@ LeapLogic converts Teradata's INTEGER type (supporting values from -2,147,483,64
 **BIGINT → bigint**  
 LeapLogic converts Teradata's BIGINT type to PySpark's `bigint` type for handling very large integers (range: -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807). This conversion is essential for very large transaction IDs, timestamps in milliseconds, or massive aggregation results. LeapLogic transforms `transaction_id BIGINT` to `transaction_id bigint`, preserving values like 9876543210.
 
-### How Does LeapLogic Convert Teradata Decimal, Numeric, Float, and Double Precision Types to PySpark?
-
-**Question:** How is FLOAT converted in PySpark? How is DECIMAL converted? What does LeapLogic convert DECIMAL, NUMERIC, FLOAT, REAL, DOUBLE PRECISION to in AWS Glue?
+### Decimal and Floating-Point Type Conversions
 
 **DECIMAL(18,2) → decimal(18,2)**  
 LeapLogic preserves the exact precision of Teradata's DECIMAL type when converting to PySpark. For DECIMAL(18,2) (18 total digits with 2 decimal places), LeapLogic generates PySpark code with `decimal(18,2)`, maintaining precision critical for monetary values. When LeapLogic converts a `price DECIMAL(18,2)` column, it ensures values like 1234.56 remain exact, preventing floating-point rounding errors in financial calculations.
@@ -56,9 +41,7 @@ When LeapLogic encounters Teradata's REAL type (single-precision floating-point)
 **DOUBLE PRECISION → String**  
 In certain cases, LeapLogic converts Teradata's DOUBLE PRECISION type to PySpark's `String` type rather than `double`. This conversion strategy preserves full precision where floating-point representation might introduce errors. LeapLogic transforms `precise_value DOUBLE PRECISION` to `precise_value String`, storing "3.141592653589793" as text to maintain exact representation.
 
-### How Does LeapLogic Convert Teradata Character and String Types (CHAR, VARCHAR, CLOB, BLOB) to PySpark?
-
-**Question:** How is CHAR converted in PySpark? How is CLOB converted? How is BLOB converted in PySpark? What does LeapLogic convert VARCHAR, CHAR, CLOB, BLOB to in AWS Glue?
+### Character and String Type Conversions
 
 **CHAR(10) → VARCHAR(10)**  
 LeapLogic converts Teradata's fixed-length CHAR type to PySpark's `VARCHAR` type with the same length constraint. While CHAR always uses fixed storage (padding with spaces), LeapLogic generates VARCHAR code in PySpark for more flexible handling. For example, `country_code CHAR(10)` storing "USA" (padded in Teradata) is converted by LeapLogic to `country_code VARCHAR(10)` in PySpark.
@@ -72,9 +55,7 @@ LeapLogic converts Teradata's CLOB (Character Large Object) type to PySpark's `s
 **BLOB → binary**  
 LeapLogic converts Teradata's BLOB (Binary Large Object) type to PySpark's `binary` type for handling byte arrays. This conversion is used for images, PDFs, audio files, encrypted data, or any non-text binary content. LeapLogic transforms `profile_image BLOB` to `profile_image binary`, preserving the raw bytes of image files or other binary content.
 
-### How Does LeapLogic Convert Teradata Date and Time Types (DATE, TIME, TIMESTAMP) to PySpark?
-
-**Question:** How is DATE converted in PySpark? How is TIMESTAMP converted? How is TIME converted in PySpark? What does LeapLogic convert DATE, TIME, TIMESTAMP to in AWS Glue?
+### Date and Time Type Conversions
 
 **DATE → date**  
 LeapLogic converts Teradata's DATE type directly to PySpark's `date` type with no transformation needed. This conversion preserves calendar dates (year, month, day) for birthdates, order dates, and deadline dates. LeapLogic transforms `order_date DATE` to `order_date date`, maintaining values like 2025-11-18.
@@ -85,9 +66,7 @@ LeapLogic converts Teradata's TIME type (storing time of day without a date comp
 **TIMESTAMP → timestamp**  
 LeapLogic converts Teradata's TIMESTAMP type directly to PySpark's `timestamp` type, preserving both date and time components. This conversion is crucial for audit trails, transaction records, and event logging. LeapLogic transforms `created_at TIMESTAMP` to `created_at timestamp`, maintaining precise moments like 2025-11-18 14:30:00.123.
 
-### How Does LeapLogic Convert Teradata INTERVAL Types (INTERVAL YEAR, INTERVAL MONTH) to PySpark?
-
-**Question:** How is INTERVAL YEAR converted in PySpark? How is INTERVAL MONTH converted? What does LeapLogic convert INTERVAL types to in AWS Glue?
+### Interval Type Conversions
 
 **INTERVAL YEAR(2) → INTERVAL**  
 LeapLogic converts Teradata's INTERVAL YEAR type (representing durations in years) to PySpark's generic `INTERVAL` type. When encountering interval types with precision (2 means up to 99 years), LeapLogic generates appropriate PySpark INTERVAL code for age calculations, employment duration, or year-based time spans. For example, `age INTERVAL YEAR(2)` is converted by LeapLogic to `age INTERVAL`, representing durations like 25 years.
@@ -97,15 +76,11 @@ LeapLogic converts Teradata's INTERVAL MONTH type to PySpark's `INTERVAL` type f
 
 ---
 
-## 2. Query Type Conversions: How Does LeapLogic Convert Teradata SQL Queries to PySpark?
+## 2. Query Type Conversion
 
-**Question:** How does LeapLogic convert Teradata queries to PySpark? How are UPDATE, DELETE, INSERT, TRUNCATE queries converted in AWS Glue?
+LeapLogic automatically analyzes and converts different SQL query types from Teradata to PySpark-compatible syntax.
 
-**Answer:** LeapLogic automatically analyzes and converts different SQL query types from Teradata to PySpark-compatible syntax.
-
-### How Does LeapLogic Convert Teradata UPDATE Queries to PySpark (UPDATE or MERGE INTO)?
-
-**Question:** How is UPDATE converted in PySpark? Does LeapLogic convert UPDATE to MERGE INTO? When does LeapLogic keep UPDATE as UPDATE in AWS Glue?
+### UPDATE Queries → UPDATE or MERGE INTO
 
 LeapLogic intelligently converts Teradata UPDATE statements based on query complexity. For simple UPDATE operations on single tables, LeapLogic maintains the UPDATE syntax. However, when UPDATE involves subqueries or multiple tables, LeapLogic converts to MERGE INTO statements for better performance in distributed systems.
 
@@ -190,9 +165,7 @@ WHEN MATCHED THEN
 
 When LeapLogic detects subqueries or multi-table UPDATE operations, it converts to MERGE INTO to ensure atomic operations and better handle concurrent modifications in distributed environments.
 
-### How Does LeapLogic Convert Teradata DELETE Queries to PySpark (MERGE INTO or DELETE)?
-
-**Question:** How is DELETE converted in PySpark? Does LeapLogic convert DELETE to MERGE INTO? When does LeapLogic keep DELETE as DELETE in AWS Glue?
+### DELETE Queries → MERGE INTO or DELETE
 
 LeapLogic intelligently determines the best conversion strategy for DELETE statements based on query complexity. For simple DELETE operations, LeapLogic maintains the DELETE syntax. For complex scenarios involving joins or subqueries, LeapLogic converts to MERGE INTO patterns for better performance.
 
@@ -242,9 +215,7 @@ WHEN MATCHED THEN DELETE;
 
 LeapLogic's intelligent conversion provides better performance for complex delete operations and ensures consistency in distributed systems.
 
-### How Does LeapLogic Convert Teradata INSERT Queries to PySpark?
-
-**Question:** How is INSERT converted in PySpark? Does LeapLogic add CAST or COALESCE to INSERT statements in AWS Glue?
+### INSERT Queries → INSERT
 
 LeapLogic converts Teradata INSERT statements to PySpark with appropriate data type casting and NULL handling. While basic INSERT syntax remains similar, LeapLogic adds necessary transformations for data type compatibility and constraint handling.
 
@@ -323,9 +294,7 @@ INSERT
 
 LeapLogic ensures proper data type compatibility and handles NULL values according to target table constraints.
 
-### How Does LeapLogic Convert Teradata TRUNCATE Queries to PySpark?
-
-**Question:** How is TRUNCATE converted in PySpark? Does LeapLogic change TRUNCATE syntax in AWS Glue?
+### TRUNCATE Queries → TRUNCATE
 
 LeapLogic converts Teradata TRUNCATE statements directly to PySpark with minimal changes. This operation efficiently removes all rows from a table without logging individual row deletions.
 
@@ -345,15 +314,11 @@ LeapLogic preserves the TRUNCATE behavior across platforms, maintaining fast dat
 
 ---
 
-## 3. Logical Transformations and Conversion Rules: How Does LeapLogic Handle Special SQL Constructs in PySpark?
+## 3. Logical Transformations and Conversion Rules
 
-**Question:** What transformation rules does LeapLogic apply for PySpark? How does LeapLogic handle QUALIFY, COALESCE, casting, identity columns in AWS Glue?
+LeapLogic applies intelligent transformation rules to ensure migrated code maintains functional equivalence while optimizing for PySpark's distributed architecture.
 
-**Answer:** LeapLogic applies intelligent transformation rules to ensure migrated code maintains functional equivalence while optimizing for PySpark's distributed architecture.
-
-### How Does LeapLogic Convert QUALIFY Clause to PySpark Derived Table (Subquery)?
-
-**Question:** How is QUALIFY clause converted in PySpark? Does PySpark support QUALIFY? How does LeapLogic handle QUALIFY in AWS Glue? What is DerivedTable?
+### QUALIFY Clause Conversion -> Derived column
 
 **How LeapLogic Handles It:** Since PySpark/Iceberg doesn't support the QUALIFY clause, LeapLogic automatically creates a subquery (named `DerivedTable`) and moves the qualify condition to a WHERE clause in the outer query.
 
@@ -399,9 +364,7 @@ FROM (
 WHERE windowFunction = 1;
 ```
 
-### How Does LeapLogic Apply CAST Functions in PySpark Conversion?
-
-**Question:** When does LeapLogic apply CAST in PySpark? How does LeapLogic handle data type mismatches in AWS Glue? How is casting applied?
+### Casting Application
 
 **How LeapLogic Handles It:** When LeapLogic detects data type mismatches between source and target columns during INSERT operations, it automatically applies CAST functions to ensure type compatibility.
 
@@ -449,9 +412,7 @@ FROM (
 WHERE windowFunction = 1;
 ```
 
-### How Does LeapLogic Apply COALESCE for NULL Handling in PySpark?
-
-**Question:** When does LeapLogic apply COALESCE in PySpark? How does LeapLogic handle NOT NULL constraints in AWS Glue? How is COALESCE used?
+### COALESCE Application
 
 **How LeapLogic Handles It:** For tables with NOT NULL constraints, LeapLogic automatically wraps columns with COALESCE functions to handle null entries appropriately.
 
@@ -499,37 +460,27 @@ FROM (
 WHERE windowFunction = 1;
 ```
 
-### How Does LeapLogic Handle Collation and Case Sensitivity in PySpark?
-
-**Question:** How does LeapLogic handle collation in PySpark? How is case sensitivity handled in AWS Glue conversion? Does LeapLogic use rtrim or upper?
+### Collate Handling (PySpark-Specific)
 
 **How LeapLogic Handles It:** Teradata handles case sensitivity automatically, but PySpark requires explicit handling. LeapLogic applies `rtrim()` for collation and `upper()` for case-insensitive comparisons.
 
 **Conversion Pattern:** LeapLogic wraps string comparisons with `rtrim(upper(col1)) = upper('value')` for case-insensitive matching.
 
-### How Does LeapLogic Replace Views with Tables in PySpark INSERT Statements?
-
-**Question:** Does LeapLogic replace views with tables in PySpark? How does LeapLogic handle INSERT into views in AWS Glue?
+### View to Table Replacement
 
 **How LeapLogic Handles It:** Since INSERT into views doesn't work in PySpark, LeapLogic automatically identifies view references in INSERT statements and replaces them with the underlying table names.
 
-### How Does LeapLogic Convert Multi-Argument COALESCE to Nested COALESCE in PySpark?
-
-**Question:** How is COALESCE with multiple arguments converted in PySpark? Does LeapLogic nest COALESCE functions in AWS Glue?
+### Multi-Argument COALESCE Conversion
 
 **How LeapLogic Handles It:** Teradata's COALESCE supports multiple arguments like `COALESCE(col1, col2, 0)`, but PySpark requires nested COALESCE functions. LeapLogic automatically nests these functions.
 
 **Conversion Pattern:** LeapLogic transforms `COALESCE(col1, col2, col3, 0)` to `COALESCE(COALESCE(col3, COALESCE(col1, col2)),0)`.
 
-### How Does LeapLogic Replace SELECT * (Asterisk) with Explicit Column Names in PySpark?
-
-**Question:** Does LeapLogic replace SELECT * in PySpark? How does LeapLogic handle asterisk in views in AWS Glue? Does LeapLogic expand SELECT * to column names?
+### Asterisk (\*) Replacement
 
 **How LeapLogic Handles It:** For view conversions, LeapLogic replaces `SELECT *` with explicit column names from their underlying tables for performance enhancement. This is not applied to procedure conversions.
 
-### How Does LeapLogic Convert Teradata IDENTITY Columns to PySpark?
-
-**Question:** How is IDENTITY column converted in PySpark? How does LeapLogic handle GENERATED ALWAYS AS IDENTITY in AWS Glue? Does PySpark support identity columns?
+### Identity Column Conversion
 
 **How LeapLogic Handles It:** Since PySpark doesn't have direct identity column support like Teradata's IDENTITY,
 
@@ -567,21 +518,15 @@ chr(0)
 
 LeapLogic simplifies complex Teradata identity specifications into concise PySpark equivalents while preserving the auto-incrementing behavior.
 
-### What Naming Conventions Does LeapLogic Apply During PySpark Conversion?
-
-**Question:** Does LeapLogic change column names in PySpark? Does LeapLogic convert names to lowercase in AWS Glue? What naming conventions does LeapLogic use?
+### Naming Conventions
 
 **How LeapLogic Handles It:** LeapLogic standardizes naming conventions by converting all columns and tables to lowercase, following Python best practices. File names (object names without schema) are converted to lowercase, while class names are converted to uppercase.
 
-### How Does LeapLogic Handle CAST and COALESCE in Nested Queries and Subqueries in PySpark?
-
-**Question:** Does LeapLogic apply CAST in subqueries in PySpark? Does LeapLogic apply COALESCE in inner queries in AWS Glue? How are nested queries handled?
+### Casting & Coalesce in Nested Queries
 
 **How LeapLogic Handles It:** LeapLogic optimizes by applying casting and COALESCE only in the outermost query, not in inner subqueries, improving performance.
 
-### How Does LeapLogic Parameterize Database Names and Declare External Schemas in PySpark?
-
-**Question:** Does LeapLogic parameterize database names in PySpark? How does LeapLogic handle external schemas in AWS Glue? What is get_param_value?
+### Database Name Parameterization and External Schema Declaration
 
 **How LeapLogic Handles It:** LeapLogic parameterizes database names in converted queries to ensure flexibility across different environments. Database names are replaced with parameterized references that can be configured during deployment.
 
@@ -596,9 +541,7 @@ LeapLogic simplifies complex Teradata identity specifications into concise PySpa
 
 This approach provides environment-agnostic code and supports complex multi-database architectures in AWS Glue.
 
-### How Does LeapLogic Handle Cross-Platform Query Conversion Between Iceberg and Redshift?
-
-**Question:** How does LeapLogic handle Iceberg and Redshift together? What is redshift_copy table? What is ext_ prefix? How does LeapLogic convert queries across platforms?
+### Cross-Platform Query Conversion Strategy (Iceberg & Redshift)
 
 **How LeapLogic Handles It:** LeapLogic determines the optimal conversion strategy based on the location of target and source tables across different platforms (Iceberg and Redshift). The conversion approach varies depending on where the data resides and where it needs to be processed.
 
@@ -626,17 +569,13 @@ This intelligent approach ensures optimal performance by selecting the appropria
 
 ---
 
-## 4. Function Conversions: How Does LeapLogic Convert Teradata Functions to PySpark?
+## 4. Function Conversion
 
-**Question:** How does LeapLogic convert Teradata functions to PySpark? What function mappings does LeapLogic perform in AWS Glue?
+LeapLogic's function conversion engine automatically translates Teradata SQL functions to their PySpark equivalents. Below are detailed examples of how LeapLogic performs these conversions.
 
-**Answer:** LeapLogic's function conversion engine automatically translates Teradata SQL functions to their PySpark equivalents. Below are detailed examples of how LeapLogic performs these conversions.
+### String and Text Manipulation Functions
 
-### String and Text Manipulation Function Conversions
-
-#### How Does LeapLogic Convert replacestr and reg_replace to PySpark regexp_replace?
-
-**Question:** How is replacestr converted in PySpark? How is reg_replace converted in AWS Glue? What does LeapLogic convert replacestr to?
+#### replacestr/reg_replace → regexp_replace
 
 **What the function does:** Searches for patterns in text strings and replaces them with new values.
 
@@ -662,9 +601,7 @@ SELECT regexp_replace(email, '@.*$', '@company.com') AS normalized_email
 FROM employees;
 ```
 
-#### How Does LeapLogic Convert Teradata numsonly Function to PySpark REGEXP_REPLACE?
-
-**Question:** How is numsonly converted in PySpark? How do you extract only numbers from a string in AWS Glue? What does LeapLogic convert numsonly to?
+#### numsonly → REGEXP_REPLACE
 
 **What the function does:** Extracts only numeric characters from a string, removing all non-numeric characters.
 
@@ -685,11 +622,9 @@ SELECT phone, REGEXP_REPLACE(phone, '[^0-9]', '') AS digits_only
 FROM contacts;
 ```
 
-### Hashing and Encryption Function Conversions
+### Hashing and Encryption Functions
 
-#### How Does LeapLogic Convert Teradata hash_md5 Function to PySpark md5?
-
-**Question:** How is hash_md5 converted in PySpark? How do you generate MD5 hash in AWS Glue? What does LeapLogic convert hash_md5 to?
+#### hash_md5 → md5
 
 **What the function does:** Generates an MD5 hash (128-bit cryptographic hash) of input values.
 
@@ -709,11 +644,9 @@ SELECT customer_id, md5(email) AS hashed_email
 FROM customers;
 ```
 
-### Type Conversion Function Conversions (TO_DATE, TO_CHAR, TO_INTEGER, TO_TIMESTAMP, TO_NUMBER)
+### Type Conversion Functions
 
-#### How Does LeapLogic Convert Teradata TO_DATE Function to PySpark CAST?
-
-**Question:** How is TO_DATE converted in PySpark? How do you convert string to date in AWS Glue? What does LeapLogic convert TO_DATE to?
+#### TO_DATE → CAST(col as date)
 
 **What the function does:** Converts strings or other data types to DATE type.
 
@@ -737,9 +670,7 @@ SELECT order_id, CAST(order_date_str AS date) AS order_date
 FROM staging_orders;
 ```
 
-#### How Does LeapLogic Convert Teradata TO_CHAR Function to PySpark CAST?
-
-**Question:** How is TO_CHAR converted in PySpark? How do you convert to string in AWS Glue? What does LeapLogic convert TO_CHAR to?
+#### TO_CHAR → CAST(col as String)
 
 **What the function does:** Converts numbers, dates, or other data types to character strings.
 
@@ -761,9 +692,7 @@ SELECT customer_id, CAST(customer_id AS String) AS customer_id_str,
 FROM customers;
 ```
 
-#### How Does LeapLogic Convert Teradata TO_INTEGER Function to PySpark CAST?
-
-**Question:** How is TO_INTEGER converted in PySpark? How do you convert to integer in AWS Glue? What does LeapLogic convert TO_INTEGER to?
+#### TO_INTEGER → CAST(col as int)
 
 **What the function does:** Converts string or numeric values to integer type.
 
@@ -783,9 +712,7 @@ SELECT product_id, CAST(price AS int) AS price_int
 FROM products;
 ```
 
-#### How Does LeapLogic Convert Teradata TO_TIMESTAMP Function to PySpark CAST?
-
-**Question:** How is TO_TIMESTAMP converted in PySpark? How do you convert to timestamp in AWS Glue? What does LeapLogic convert TO_TIMESTAMP to?
+#### TO_TIMESTAMP → CAST(col as timestamp)
 
 **What the function does:** Converts strings or other types to timestamp data type.
 
@@ -805,9 +732,7 @@ SELECT event_id, CAST(event_time_str AS timestamp) AS event_timestamp
 FROM events;
 ```
 
-#### How Does LeapLogic Convert Teradata TO_NUMBER Function to PySpark CAST?
-
-**Question:** How is TO_NUMBER converted in PySpark? How do you convert to decimal/numeric in AWS Glue? What does LeapLogic convert TO_NUMBER to?
+#### TO_NUMBER → CAST(col as decimal)
 
 **What the function does:** Converts strings or other types to numeric/decimal values.
 
@@ -827,11 +752,9 @@ SELECT order_id, CAST(amount_str AS decimal) AS amount
 FROM orders_staging;
 ```
 
-### Pattern Matching and Extraction Function Conversions
+### Pattern Matching and Extraction Functions
 
-#### How Does LeapLogic Convert Teradata REG_EXTRACT to PySpark REGEXP_EXTRACT?
-
-**Question:** How is REG_EXTRACT converted in PySpark? How do you extract text with regex in AWS Glue? What does LeapLogic convert REG_EXTRACT to?
+#### REG_EXTRACT → REGEXP_EXTRACT
 
 **What the function does:** Uses regular expressions to extract specific portions of text matching a pattern.
 
@@ -853,11 +776,9 @@ SELECT log_entry,
 FROM system_logs;
 ```
 
-### Date and Time Function Conversions (NOW, GETUTCDATE)
+### Date and Time Functions
 
-#### How Does LeapLogic Convert Teradata GETUTCDATE to PySpark convert_timezone?
-
-**Question:** How is GETUTCDATE converted in PySpark? How do you get UTC date and time in AWS Glue? What does LeapLogic convert GETUTCDATE to?
+#### GETUTCDATE → convert_timezone('UTC', getdate())
 
 **What the function does:** Returns the current date and time in UTC.
 
@@ -877,9 +798,7 @@ INSERT INTO audit_log (event_time, action)
 VALUES (convert_timezone('UTC', getdate()), 'User login');
 ```
 
-#### How Does LeapLogic Convert Teradata NOW Function to PySpark CURRENT_TIMESTAMP?
-
-**Question:** How is NOW converted in PySpark? How do you get current timestamp in AWS Glue? What does LeapLogic convert NOW to?
+#### NOW → CURRENT_TIMESTAMP
 
 **What the function does:** Returns the current date and time when the query executes.
 
@@ -901,11 +820,9 @@ SET last_activity = CURRENT_TIMESTAMP
 WHERE session_id = 'abc123';
 ```
 
-### NULL Handling Function Conversions (NULLIFZERO, ZEROIFNULL)
+### NULL Handling Functions
 
-#### How Does LeapLogic Convert Teradata NULLIFZERO Function to PySpark NULLIF?
-
-**Question:** How is NULLIFZERO converted in PySpark? How do you convert zero to NULL in AWS Glue? What does LeapLogic convert NULLIFZERO to? How to avoid division by zero?
+#### NULLIFZERO → NULLIF
 
 **What the function does:** Converts zero values to NULL to avoid division by zero errors.
 
@@ -927,9 +844,7 @@ SELECT product_id,
 FROM sales;
 ```
 
-#### How Does LeapLogic Convert Teradata ZEROIFNULL Function to PySpark COALESCE?
-
-**Question:** How is ZEROIFNULL converted in PySpark? How do you convert NULL to zero in AWS Glue? What does LeapLogic convert ZEROIFNULL to?
+#### ZEROIFNULL → COALESCE
 
 **What the function does:** Converts NULL values to zero (0).
 
@@ -953,11 +868,7 @@ FROM customers;
 
 ---
 
-## Additional Resources and References for Teradata to PySpark Migration
-
-**Question:** Where can I find more information about Teradata to PySpark migration? What are the official documentation links for AWS Glue?
-
-**Answer:** Here are helpful resources for Teradata to PySpark migration:
+## Additional Resources
 
 - [AWS Glue Documentation](https://docs.aws.amazon.com/glue/)
 - [PySpark SQL Reference](https://spark.apache.org/docs/latest/sql-ref.html)
